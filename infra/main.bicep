@@ -5,6 +5,7 @@ targetScope = 'subscription'
 @description('Name of the the environment which is used to generate a short unique hash used in all resources.')
 param environmentName string
 
+
 @minLength(1)
 @description('Primary location for all resources')
 @allowed(['australiaeast', 'eastasia', 'eastus', 'eastus2', 'northeurope', 'southcentralus', 'southeastasia', 'swedencentral', 'uksouth', 'westus2', 'eastus2euap'])
@@ -25,11 +26,29 @@ param storageAccountName string = ''
 param vNetName string = ''
 param disableLocalAuth bool = true
 
+// MCP Client APIM gateway specific variables
+
+var oauth_scopes = 'openid https://graph.microsoft.com/.default'
+@description('Entra Id Client ID')
+param entraIDClientId string
+// Client secret won't work for MSFT tenant, need to implement Federated Identity Credential flow
+@description('Entra Id Client Secret')
+param entraIDClientSecret string
+
+// These keys are used to encrypt and decrypt the tokens in the APIM gateway.
+// # This is an experimental feature and should NOT be used in production!
+param encryption_iv_Guid string = newGuid()
+var encryption_iv = base64(encryption_iv_Guid)
+param encryption_key_Guid string = newGuid()
+var encryption_key = base64(encryption_key_Guid)
+
+
 var abbrs = loadJsonContent('./abbreviations.json')
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 var tags = { 'azd-env-name': environmentName }
 var functionAppName = !empty(apiServiceName) ? apiServiceName : '${abbrs.webSitesFunctions}api-${resourceToken}'
 var deploymentStorageContainerName = 'app-package-${take(functionAppName, 32)}-${take(toLower(uniqueString(functionAppName, resourceToken)), 7)}'
+
 
 // Organize resources in a resource group
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
@@ -37,6 +56,36 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   location: location
   tags: tags
 }
+
+@description('The suffix to append to the API Management instance name. Defaults to a unique string based on subscription and resource group IDs.')
+var resourceSuffix = uniqueString(subscription().id, resourceGroupName)
+var apiManagementName = '${abbrs.apiManagementService}${resourceSuffix}'
+
+// apim service deployment
+module apimService './core/apim/apim.bicep' = {
+  name: apiManagementName
+  scope: rg
+  params:{
+    apiManagementName: apiManagementName
+  }
+}
+
+// MCP client oauth via APIM gateway
+module oauthAPIModule './app/apim-oauth/oauth.bicep' = {
+  name: 'oauthAPIModule'
+  scope: rg
+  params: {    
+    apimServiceName: apimService.name
+    entraIDTenantId: subscription().tenantId
+    entraIDClientId: entraIDClientId
+    entraIDClientSecret: entraIDClientSecret
+    oauthScopes: oauth_scopes
+    encryptionIV: encryption_iv
+    encryptionKey: encryption_key
+    mcpClientId: entraIDClientId
+  }
+}
+
 
 // User assigned managed identity to be used by the function app to reach storage and service bus
 module apiUserAssignedIdentity './core/identity/userAssignedIdentity.bicep' = {
@@ -174,6 +223,8 @@ module appInsightsRoleAssignmentApi './core/monitor/appinsights-access.bicep' = 
     principalID: apiUserAssignedIdentity.outputs.identityPrincipalId
   }
 }
+
+
 
 // App outputs
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = monitoring.outputs.applicationInsightsConnectionString
