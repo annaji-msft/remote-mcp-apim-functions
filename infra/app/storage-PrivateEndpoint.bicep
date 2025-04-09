@@ -23,10 +23,10 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2021-09-01' existing 
 }
 
 var blobPrivateDNSZoneName = format('privatelink.blob.{0}', environment().suffixes.storage)
-var blobPrivateDnsZoneVirtualNetworkLinkName = format('{0}-link-{1}', resourceName, take(toLower(uniqueString(resourceName, virtualNetworkName)), 4))
+var blobPrivateDnsZoneVirtualNetworkLinkName = format('{0}-blob-link-{1}', resourceName, take(toLower(uniqueString(resourceName, virtualNetworkName)), 4))
 
 var queuePrivateDNSZoneName = format('privatelink.queue.{0}', environment().suffixes.storage)
-var queuePrivateDnsZoneVirtualNetworkLinkName = format('{0}-link-{1}', resourceName, take(toLower(uniqueString(resourceName, virtualNetworkName)), 4))
+var queuePrivateDnsZoneVirtualNetworkLinkName = format('{0}-queue-link-{1}', resourceName, take(toLower(uniqueString(resourceName, virtualNetworkName)), 4))
 
 // Private DNS Zones
 resource blobPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
@@ -63,7 +63,7 @@ resource blobPrivateDnsZoneVirtualNetworkLink 'Microsoft.Network/privateDnsZones
   }
 }
 
-resource queuerivateDnsZoneVirtualNetworkLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+resource queuePrivateDnsZoneVirtualNetworkLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   parent: queuePrivateDnsZone
   name: queuePrivateDnsZoneVirtualNetworkLinkName
   location: 'global'
@@ -150,4 +150,3 @@ resource queuePrivateDnsZoneGroupName 'Microsoft.Network/privateEndpoints/privat
     ]
   }
 }
- 
