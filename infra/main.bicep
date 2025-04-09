@@ -29,18 +29,6 @@ param disableLocalAuth bool = true
 // MCP Client APIM gateway specific variables
 
 var oauth_scopes = 'openid https://graph.microsoft.com/.default'
-@description('Entra Id Client ID')
-param entraIDClientId string
-// Client secret won't work for MSFT tenant, need to implement Federated Identity Credential flow
-@description('Entra Id Client Secret')
-param entraIDClientSecret string
-
-// These keys are used to encrypt and decrypt the tokens in the APIM gateway.
-// # This is an experimental feature and should NOT be used in production!
-param encryption_iv_Guid string = newGuid()
-var encryption_iv = base64(encryption_iv_Guid)
-param encryption_key_Guid string = newGuid()
-var encryption_key = base64(encryption_key_Guid)
 
 
 var abbrs = loadJsonContent('./abbreviations.json')
@@ -58,7 +46,7 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
 }
 
 @description('The suffix to append to the API Management instance name. Defaults to a unique string based on subscription and resource group IDs.')
-var resourceSuffix = uniqueString(subscription().id, resourceGroupName)
+var resourceSuffix = uniqueString(rg.id)
 var apiManagementName = '${abbrs.apiManagementService}${resourceSuffix}'
 
 // apim service deployment
@@ -74,16 +62,26 @@ module apimService './core/apim/apim.bicep' = {
 module oauthAPIModule './app/apim-oauth/oauth.bicep' = {
   name: 'oauthAPIModule'
   scope: rg
-  params: {    
+  params: {
+    location: location
     apimServiceName: apimService.name
-    entraIDTenantId: subscription().tenantId
-    entraIDClientId: entraIDClientId
-    entraIDClientSecret: entraIDClientSecret
     oauthScopes: oauth_scopes
-    encryptionIV: encryption_iv
-    encryptionKey: encryption_key
-    mcpClientId: entraIDClientId
+    entraAppUserAssignedIdentityPrincipleId: apimService.outputs.entraAppUserAssignedIdentityPrincipleId
+    entraAppUserAssignedIdentityClientId: apimService.outputs.entraAppUserAssignedIdentityClientId
   }
+}
+
+// MCP server API endpoints
+module mcpApiModule './app/apim-mcp/mcp-api.bicep' = {
+  name: 'mcpApiModule'
+  scope: rg
+  params: {
+    apimServiceName: apimService.name
+    functionAppName: functionAppName
+  }
+  dependsOn: [
+    api
+  ]
 }
 
 
@@ -232,3 +230,4 @@ output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
 output SERVICE_API_NAME string = api.outputs.SERVICE_API_NAME
 output AZURE_FUNCTION_NAME string = api.outputs.SERVICE_API_NAME
+output MCP_ENDPOINT string = '${apimService.outputs.gatewayUrl}/mcp/sse'
