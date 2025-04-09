@@ -1,33 +1,37 @@
 @description('The name of the API Management service')
 param apimServiceName string
 
+@description('The Azure region for resources')
+param location string
+
 // Parameters for Named Values
-@description('The Entra ID tenant ID')
-param entraIDTenantId string
-
-@description('The client ID for Entra ID app registration')
-param entraIDClientId string
-
-@description('The client secret for Entra ID app registration')
-@secure()
-param entraIDClientSecret string
-
 @description('The required scopes for authorization')
 param oauthScopes string
 
-@description('The encryption IV for session token')
-@secure()
-param encryptionIV string
+@description('The principle id of the user-assigned managed identity for Entra app')
+param entraAppUserAssignedIdentityPrincipleId string
 
-@description('The encryption key for session token')
-@secure()
-param encryptionKey string
-
-@description('The MCP client ID')
-param mcpClientId string
+@description('The client ID of the user-assigned managed identity for Entra app')
+param entraAppUserAssignedIdentityClientId string
 
 resource apimService 'Microsoft.ApiManagement/service@2021-08-01' existing = {
   name: apimServiceName
+}
+
+module entraApp './entra-app.bicep' = {
+  name: 'entraApp'
+  params:{
+    apimOauthCallback: '${apimService.properties.gatewayUrl}/oauth-callback'
+    userAssignedIdentityPrincipleId: entraAppUserAssignedIdentityPrincipleId
+  }
+}
+
+// Generate cryptographic values for encryption
+module cryptoGenerator './crypto-generator.bicep' = {
+  name: 'cryptoGenerator'
+  params: {
+    location: location
+  }
 }
 
 // Define the Named Values
@@ -36,7 +40,7 @@ resource EntraIDTenantIdNamedValue 'Microsoft.ApiManagement/service/namedValues@
   name: 'EntraIDTenantId'
   properties: {
     displayName: 'EntraIDTenantId'
-    value: entraIDTenantId
+    value: entraApp.outputs.entraAppTenantId
     secret: false
   }
 }
@@ -46,18 +50,18 @@ resource EntraIDClientIdNamedValue 'Microsoft.ApiManagement/service/namedValues@
   name: 'EntraIDClientId'
   properties: {
     displayName: 'EntraIDClientId'
-    value: entraIDClientId
+    value: entraApp.outputs.entraAppId
     secret: false
   }
 }
 
-resource EntraIDClientSecretNamedValue 'Microsoft.ApiManagement/service/namedValues@2021-08-01' = {
+resource EntraIdFicClientIdNamedValue 'Microsoft.ApiManagement/service/namedValues@2021-08-01' = {
   parent: apimService
-  name: 'EntraIDClientSecret'
+  name: 'EntraIDFicClientId'
   properties: {
-    displayName: 'EntraIDClientSecret'
-    value: entraIDClientSecret
-    secret: true
+    displayName: 'EntraIdFicClientId'
+    value: entraAppUserAssignedIdentityClientId
+    secret: false
   }
 }
 
@@ -86,7 +90,7 @@ resource EncryptionIVNamedValue 'Microsoft.ApiManagement/service/namedValues@202
   name: 'EncryptionIV'
   properties: {
     displayName: 'EncryptionIV'
-    value: encryptionIV
+    value: cryptoGenerator.outputs.encryptionIV
     secret: true
   }
 }
@@ -96,7 +100,7 @@ resource EncryptionKeyNamedValue 'Microsoft.ApiManagement/service/namedValues@20
   name: 'EncryptionKey'
   properties: {
     displayName: 'EncryptionKey'
-    value: encryptionKey
+    value: cryptoGenerator.outputs.encryptionKey
     secret: true
   }
 }
@@ -106,7 +110,7 @@ resource McpClientIdNamedValue 'Microsoft.ApiManagement/service/namedValues@2021
   name: 'McpClientId'
   properties: {
     displayName: 'McpClientId'
-    value: mcpClientId
+    value: entraApp.outputs.entraAppId
     secret: false
   }
 }
@@ -133,7 +137,7 @@ resource oauthApi 'Microsoft.ApiManagement/service/apis@2021-08-01' = {
     protocols: [
       'https'
     ]
-    serviceUrl: 'https://login.microsoftonline.com/${entraIDTenantId}/oauth2/v2.0'
+    serviceUrl: 'https://login.microsoftonline.com/${entraApp.outputs.entraAppTenantId}/oauth2/v2.0'
   }
 }
 
@@ -201,6 +205,10 @@ resource oauthCallbackPolicy 'Microsoft.ApiManagement/service/apis/operations/po
     format: 'rawxml'
     value: loadTextContent('oauth-callback.policy.xml')
   }
+  dependsOn: [
+    EncryptionKeyNamedValue
+    EncryptionIVNamedValue
+  ]
 }
 
 // Add a POST operation for the register endpoint

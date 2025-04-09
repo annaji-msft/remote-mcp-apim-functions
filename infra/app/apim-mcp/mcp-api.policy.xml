@@ -1,0 +1,23 @@
+<!--
+    MCP API POLICY
+    This policy applies to all operations in the MCP API.
+    It adds authorization header check for security.
+-->
+<policies>
+    <inbound>
+        <base />
+        <check-header name="Authorization" failed-check-httpcode="401" failed-check-error-message="Not authorized" ignore-case="false" />
+        <set-header name="x-functions-key" exists-action="override">
+            <value>{{function-host-key}}</value>
+        </set-header>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
