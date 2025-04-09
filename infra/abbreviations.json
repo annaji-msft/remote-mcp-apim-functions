@@ -2,6 +2,7 @@
     "analysisServicesServers": "as",
     "apiManagementService": "apim-",
     "appConfigurationConfigurationStores": "appcs-",
+    "applications": "app-",
     "appManagedEnvironments": "cae-",
     "appContainerApps": "ca-",
     "authorizationPolicyDefinitions": "policy-",

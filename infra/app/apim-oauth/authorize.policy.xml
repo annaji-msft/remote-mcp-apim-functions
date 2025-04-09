@@ -61,7 +61,7 @@
         
         <!-- Store code verifier for token exchange -->
         <cache-store-value duration="700" 
-            key="CodeVerifier-@(context.Variables.GetValueOrDefault("state", ""))" 
+            key="@("CodeVerifier-"+context.Variables.GetValueOrDefault("state", ""))" 
             value="@(context.Variables.GetValueOrDefault("codeVerifier", ""))" />
         
         <!-- Map state to MCP confirmation code for callback -->
