@@ -14,6 +14,12 @@ param entraAppUserAssignedIdentityPrincipleId string
 @description('The client ID of the user-assigned managed identity for Entra app')
 param entraAppUserAssignedIdentityClientId string
 
+@description('The name of the Entra application')
+param entraAppUniqueName string
+
+@description('The display name of the Entra application')
+param entraAppDisplayName string
+
 resource apimService 'Microsoft.ApiManagement/service@2021-08-01' existing = {
   name: apimServiceName
 }
@@ -21,6 +27,8 @@ resource apimService 'Microsoft.ApiManagement/service@2021-08-01' existing = {
 module entraApp './entra-app.bicep' = {
   name: 'entraApp'
   params:{
+    entraAppUniqueName: entraAppUniqueName
+    entraAppDisplayName: entraAppDisplayName
     apimOauthCallback: '${apimService.properties.gatewayUrl}/oauth-callback'
     userAssignedIdentityPrincipleId: entraAppUserAssignedIdentityPrincipleId
   }

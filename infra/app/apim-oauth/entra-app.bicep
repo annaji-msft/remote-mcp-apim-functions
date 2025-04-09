@@ -1,10 +1,10 @@
 extension microsoftGraphV1
 
 @description('The name of the Entra application')
-param entraAppName string = 'mcp-oauth-app'
+param entraAppUniqueName string
 
 @description('The display name of the Entra application')
-param entraAppDisplayName string = 'MCP OAuth App'
+param entraAppDisplayName string
 
 @description('Tenant ID where the application is registered')
 param tenantId string = tenant().tenantId
@@ -20,7 +20,7 @@ var issuer = '${loginEndpoint}${tenantId}/v2.0'
 
 resource entraApp 'Microsoft.Graph/applications@v1.0' = {
   displayName: entraAppDisplayName
-  uniqueName: entraAppName
+  uniqueName: entraAppUniqueName
   web: {
     redirectUris: [
       apimOauthCallback
