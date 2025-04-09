@@ -10,6 +10,9 @@
     },
     "vnetEnabled": {
       "value": "${VNET_ENABLED}"
+    },
+    "apimSku": {
+      "value": "Basicv2" 
     }
   }
 }
