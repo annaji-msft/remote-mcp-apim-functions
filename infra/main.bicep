@@ -24,6 +24,8 @@ param logAnalyticsName string = ''
 param resourceGroupName string = ''
 param storageAccountName string = ''
 param vNetName string = ''
+param mcpEntraApplicationDisplayName string = ''
+param mcpEntraApplicationUniqueName string = ''
 param disableLocalAuth bool = true
 
 // MCP Client APIM gateway specific variables
@@ -45,9 +47,8 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   tags: tags
 }
 
-@description('The suffix to append to the API Management instance name. Defaults to a unique string based on subscription and resource group IDs.')
-var resourceSuffix = uniqueString(rg.id)
-var apiManagementName = '${abbrs.apiManagementService}${resourceSuffix}'
+var apimResourceToken = toLower(uniqueString(subscription().id, resourceGroupName, environmentName, location))
+var apiManagementName = '${abbrs.apiManagementService}${apimResourceToken}'
 
 // apim service deployment
 module apimService './core/apim/apim.bicep' = {
@@ -64,6 +65,8 @@ module oauthAPIModule './app/apim-oauth/oauth.bicep' = {
   scope: rg
   params: {
     location: location
+    entraAppUniqueName: !empty(mcpEntraApplicationUniqueName) ? mcpEntraApplicationUniqueName : 'mcp-oauth-${apimResourceToken}-${abbrs.applications}'
+    entraAppDisplayName: !empty(mcpEntraApplicationDisplayName) ? mcpEntraApplicationDisplayName : 'MCP-OAuth-${apimResourceToken}-${abbrs.applications}'
     apimServiceName: apimService.name
     oauthScopes: oauth_scopes
     entraAppUserAssignedIdentityPrincipleId: apimService.outputs.entraAppUserAssignedIdentityPrincipleId
