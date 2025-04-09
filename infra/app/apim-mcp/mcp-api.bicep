@@ -21,7 +21,7 @@ resource functionHostKeyNamedValue 'Microsoft.ApiManagement/service/namedValues@
   properties: {
     displayName: 'function-host-key'
     secret: true
-    value: listKeys('${functionApp.id}/host/default', functionApp.apiVersion).masterKey
+    value: listKeys('${functionApp.id}/host/default', functionApp.apiVersion).systemKeys.mcp_extension
   }
 }
 
